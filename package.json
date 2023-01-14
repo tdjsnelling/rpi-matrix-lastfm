@@ -1,0 +1,16 @@
+{
+  "name": "rpi-matrix-lastfm",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "canvas": "^2.11.0",
+    "dotenv": "^16.0.3",
+    "node-fetch": "^3.3.0",
+    "node-pixel-pusher": "^1.0.4"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.3"
+  }
+}

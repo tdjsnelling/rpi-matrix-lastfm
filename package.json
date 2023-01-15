@@ -4,13 +4,18 @@
   "main": "index.js",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js"
+  },
   "dependencies": {
     "canvas": "^2.11.0",
     "dotenv": "^16.0.3",
+    "moment": "^2.29.4",
     "node-fetch": "^3.3.0",
     "node-pixel-pusher": "^1.0.4"
   },
   "devDependencies": {
+    "nodemon": "^2.0.20",
     "prettier": "^2.8.3"
   }
 }

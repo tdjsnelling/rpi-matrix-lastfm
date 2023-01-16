@@ -69,7 +69,7 @@ function createRenderer(device) {
     const json = await res.json();
 
     const lastSong = json.recenttracks?.track?.[0];
-    if (lastSong["@attr"]?.nowplaying) {
+    if (lastSong?.["@attr"]?.nowplaying) {
       const largestImage = lastSong.image?.pop();
       const imageUrl = largestImage?.["#text"];
       image = await loadImage(imageUrl);
@@ -83,7 +83,11 @@ function createRenderer(device) {
       `https://api.open-meteo.com/v1/forecast?latitude=${process.env.WEATHER_LAT}&longitude=${process.env.WEATHER_LON}&current_weather=true`
     );
     const json = await res.json();
-    weather = json.current_weather;
+    const weatherString = getWmoString(json.current_weather.weathercode);
+    const weatherIcon = await loadImage(
+      `./src/svg/${weatherString.toLowerCase()}.svg`
+    );
+    weather = { ...json.current_weather, icon: weatherIcon };
   };
 
   getNowPlayingImage();
@@ -104,8 +108,8 @@ function createRenderer(device) {
       ctx.fillText(moment().format("HH:mm:ss"), 4, 22);
 
       if (weather) {
-        ctx.fillText(`${weather.temperature}°C`, 4, 38);
-        ctx.fillText(getWmoString(weather.weathercode), 4, 49);
+        ctx.drawImage(weather.icon, 4, 28, 18, 18);
+        ctx.fillText(`${weather.temperature}°C`, 25, 40);
       }
     }
     const ImageData = ctx.getImageData(0, 0, width, height);

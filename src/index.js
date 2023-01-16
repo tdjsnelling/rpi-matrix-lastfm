@@ -68,10 +68,10 @@ function createRenderer(device) {
     );
     const json = await res.json();
 
-    const lastSong = json.recenttracks.track[0];
+    const lastSong = json.recenttracks?.track?.[0];
     if (lastSong["@attr"]?.nowplaying) {
-      const largestImage = lastSong.image.pop();
-      const imageUrl = largestImage["#text"];
+      const largestImage = lastSong.image?.pop();
+      const imageUrl = largestImage?.["#text"];
       image = await loadImage(imageUrl);
     } else {
       image = undefined;

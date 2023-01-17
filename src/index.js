@@ -1,5 +1,5 @@
 import PixelPusher from "node-pixel-pusher";
-import nodeCanvas, { loadImage } from "canvas";
+import nodeCanvas, { loadImage, registerFont } from "canvas";
 import fetch from "node-fetch";
 import moment from "moment";
 import dotenv from "dotenv";
@@ -51,6 +51,8 @@ const getWmoString = (code) => {
   }
 };
 
+registerFont("./src/font/Monaco.ttf", { family: "Monaco" });
+
 function createRenderer(device) {
   const width = device.deviceData.pixelsPerStrip;
   const height = device.deviceData.numberStrips;
@@ -79,15 +81,26 @@ function createRenderer(device) {
   };
 
   const getWeather = async () => {
+    const weatherDate = moment().format("YYYY-MM-DD");
     const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${process.env.WEATHER_LAT}&longitude=${process.env.WEATHER_LON}&current_weather=true`
+      `https://api.open-meteo.com/v1/forecast?latitude=${process.env.WEATHER_LAT}&longitude=${process.env.WEATHER_LON}&current_weather=true&daily=sunrise,sunset&timezone=auto&start_date=${weatherDate}&end_date=${weatherDate}`
     );
     const json = await res.json();
-    const weatherString = getWmoString(json.current_weather.weathercode);
-    const weatherIcon = await loadImage(
-      `./src/svg/${weatherString.toLowerCase()}.svg`
-    );
-    weather = { ...json.current_weather, icon: weatherIcon };
+    weather = { ...json.current_weather };
+    const weatherString = getWmoString(weather.weathercode);
+    if (weatherString === "Clear") {
+      if (moment() > moment(json.daily.sunset[0])) {
+        weather.icon = await loadImage(`./src/svg/moon.svg`);
+      } else if (weather.temperature > 14) {
+        weather.icon = await loadImage(`./src/svg/clear.svg`);
+      } else {
+        weather.icon = await loadImage(`./src/svg/clear-nosun.svg`);
+      }
+    } else {
+      weather.icon = await loadImage(
+        `./src/svg/${weatherString.toLowerCase()}.svg`
+      );
+    }
   };
 
   getNowPlayingImage();
@@ -103,13 +116,13 @@ function createRenderer(device) {
       ctx.fillRect(0, 0, width, height);
 
       ctx.fillStyle = "white";
-      ctx.font = "11px monospace";
+      ctx.font = "10px Monaco";
       ctx.fillText(moment().format("ddd Do"), 4, 11);
       ctx.fillText(moment().format("HH:mm:ss"), 4, 22);
 
       if (weather) {
-        ctx.drawImage(weather.icon, 4, 28, 18, 18);
-        ctx.fillText(`${weather.temperature}°C`, 25, 40);
+        ctx.drawImage(weather.icon, 4, 26, 16, 16);
+        ctx.fillText(`${weather.temperature}°C`, 4, 50);
       }
     }
     const ImageData = ctx.getImageData(0, 0, width, height);

@@ -53,7 +53,7 @@ const getWmoString = (code) => {
 
 registerFont("./src/font/Monaco.ttf", { family: "Monaco" });
 
-function createRenderer(device) {
+async function createRenderer(device) {
   const width = device.deviceData.pixelsPerStrip;
   const height = device.deviceData.numberStrips;
   const canvas = nodeCanvas.createCanvas(width, height);
@@ -61,6 +61,8 @@ function createRenderer(device) {
 
   let image;
   let weather;
+
+  const downIcon = await loadImage("./src/svg/down.svg");
 
   console.log(`Creating renderer ${width}x${height} ${MAX_FPS}fps`);
 
@@ -86,10 +88,10 @@ function createRenderer(device) {
       `https://api.open-meteo.com/v1/forecast?latitude=${process.env.WEATHER_LAT}&longitude=${process.env.WEATHER_LON}&current_weather=true&daily=sunrise,sunset&timezone=auto&start_date=${weatherDate}&end_date=${weatherDate}`
     );
     const json = await res.json();
-    weather = { ...json.current_weather };
+    weather = { ...json.current_weather, sunset: json.daily.sunset[0] };
     const weatherString = getWmoString(weather.weathercode);
     if (weatherString === "Clear") {
-      if (moment() > moment(json.daily.sunset[0])) {
+      if (moment() > moment(weather.sunset)) {
         weather.icon = await loadImage(`./src/svg/moon.svg`);
       } else if (weather.temperature > 14) {
         weather.icon = await loadImage(`./src/svg/clear.svg`);
@@ -116,13 +118,16 @@ function createRenderer(device) {
       ctx.fillRect(0, 0, width, height);
 
       ctx.fillStyle = "white";
-      ctx.font = "10px Monaco";
-      ctx.fillText(moment().format("ddd Do"), 4, 11);
-      ctx.fillText(moment().format("HH:mm:ss"), 4, 22);
+      ctx.font = "11px Monaco";
+      ctx.fillText(moment().format("ddd Do"), 4, 13);
+      ctx.fillText(moment().format("HH:mm:ss"), 4, 25);
 
       if (weather) {
-        ctx.drawImage(weather.icon, 4, 26, 16, 16);
-        ctx.fillText(`${weather.temperature}°C`, 4, 50);
+        ctx.font = "9px Monaco";
+        ctx.drawImage(weather.icon, 4, 28, 15, 15);
+        ctx.fillText(`${weather.temperature}°C`, 22, 39);
+        ctx.drawImage(downIcon, 5, 44, 10, 10);
+        ctx.fillText(moment(weather.sunset).format("HH:mm"), 17, 53);
       }
     }
     const ImageData = ctx.getImageData(0, 0, width, height);

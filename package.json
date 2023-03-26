@@ -11,6 +11,7 @@
     "canvas": "^2.11.0",
     "dotenv": "^16.0.3",
     "moment": "^2.29.4",
+    "moment-timezone": "^0.5.42",
     "node-fetch": "^3.3.0",
     "node-pixel-pusher": "^1.0.4"
   },

@@ -91,10 +91,7 @@ async function createRenderer(device) {
     weather = { ...json.current_weather, sunset: json.daily.sunset[0] };
     const weatherString = getWmoString(weather.weathercode);
     if (weatherString === "Clear") {
-      if (
-        moment().tz("Europe/London") >
-        moment(weather.sunset).tz("Europe/London")
-      ) {
+      if (moment().tz("Europe/London") > moment(weather.sunset)) {
         weather.icon = await loadImage(`./src/svg/moon.svg`);
       } else if (weather.temperature > 14) {
         weather.icon = await loadImage(`./src/svg/clear.svg`);
@@ -130,11 +127,7 @@ async function createRenderer(device) {
         ctx.drawImage(weather.icon, 4, 28, 15, 15);
         ctx.fillText(`${weather.temperature}°C`, 22, 39);
         ctx.drawImage(downIcon, 5, 44, 10, 10);
-        ctx.fillText(
-          moment(weather.sunset).tz("Europe/London").format("HH:mm"),
-          17,
-          53
-        );
+        ctx.fillText(moment(weather.sunset).format("HH:mm"), 17, 53);
       }
     }
     const ImageData = ctx.getImageData(0, 0, width, height);

@@ -2,6 +2,7 @@ import PixelPusher from "node-pixel-pusher";
 import nodeCanvas, { loadImage, registerFont } from "canvas";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import moment from "moment-timezone";
 
 dotenv.config();
 
@@ -9,7 +10,50 @@ const MAX_FPS = 30;
 const SCROLL_SPEED_PX_PER_SEC = 8; // tweak for taste
 const FONT = '16px Pixel'
 
-registerFont("./src/font/m5x7.ttf", { family: "Pixel" });
+registerFont("./src/font/m3x6.ttf", { family: "Pixel" });
+
+const getWmoString = (code) => {
+    switch (code) {
+        case 0:
+        case 1:
+            return "Clear";
+        case 2:
+            return "Cloudy";
+        case 3:
+            return "Overcast";
+        case 45:
+        case 48:
+            return "Fog";
+        case 51:
+        case 53:
+        case 55:
+        case 56:
+        case 57:
+            return "Drizzle";
+        case 61:
+        case 63:
+        case 65:
+        case 66:
+        case 67:
+        case 80:
+        case 81:
+        case 82:
+            return "Rain";
+        case 71:
+        case 73:
+        case 75:
+        case 77:
+        case 85:
+        case 86:
+            return "Snow";
+        case 95:
+        case 96:
+        case 99:
+            return "Storms";
+        default:
+            return "";
+    }
+};
 
 async function createRenderer(device) {
     const width = device.deviceData.pixelsPerStrip;
@@ -22,12 +66,14 @@ async function createRenderer(device) {
     let image, artist = "", album = "", song = "";
     let trackId = ""; // used to detect song changes
 
+    let weather;
+
     // text layout
     const xStart = 2; // 2px pad
     const availWidth = Math.max(0, width - xStart - 2);
     const lines = [
-        { key: "song",   y: 44, text: "", width: 0, offset: 0, dir: -1, pause: 0 },
-        { key: "artist", y: 53, text: "", width: 0, offset: 0, dir: -1, pause: 0 },
+        { key: "song",   y: 42, text: "", width: 0, offset: 0, dir: -1, pause: 0 },
+        { key: "artist", y: 52, text: "", width: 0, offset: 0, dir: -1, pause: 0 },
         { key: "album",  y: 62, text: "", width: 0, offset: 0, dir: -1, pause: 0 },
     ];
 
@@ -42,7 +88,7 @@ async function createRenderer(device) {
             line.width = Math.ceil(m.width);
             line.offset = 0;
             line.dir = -1; // start scrolling left
-            line.pause = 5; // pause at start
+            line.pause = 3; // pause at start
         }
     }
 
@@ -75,6 +121,7 @@ async function createRenderer(device) {
                     syncLines();
                 }
             } else {
+                trackId = undefined;
                 image = undefined;
                 // keep prior text untouched; or blank them if you prefer:
                 artist = album = song = ""; syncLines();
@@ -84,8 +131,20 @@ async function createRenderer(device) {
         }
     };
 
+    const getWeather = async () => {
+        const weatherDate = moment().tz("Europe/London").format("YYYY-MM-DD");
+        const res = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${process.env.WEATHER_LAT}&longitude=${process.env.WEATHER_LON}&current_weather=true&daily=sunrise,sunset&timezone=auto&start_date=${weatherDate}&end_date=${weatherDate}`
+        );
+        const json = await res.json();
+        weather = { ...json.current_weather, str: getWmoString(json.current_weather.weathercode) };
+    };
+
     await getNowPlayingImage();
     setInterval(getNowPlayingImage, 15000);
+
+    await getWeather();
+    setInterval(getWeather, 5 * 60000);
 
     let lastTs = Date.now();
 
@@ -97,44 +156,51 @@ async function createRenderer(device) {
         ctx.fillStyle = "black";
         ctx.fillRect(0, 0, width, height);
 
-        if (image) {
-            ctx.drawImage(image, 2, 2, 32, 32);
-        }
-
         // draw text with marquee when too wide
         ctx.fillStyle = "white";
         ctx.font = FONT;
 
-        for (const line of lines) {
-            if (!line.text) continue;
-            const needsScroll = line.width > availWidth;
+        if (image) {
+            ctx.drawImage(image, 2, 2, 32, 32);
 
-            if (needsScroll) {
-                if (line.pause > 0) {
-                    line.pause -= dt;
-                    // keep text fixed at start position
+            for (const line of lines) {
+                if (!line.text) continue;
+                const needsScroll = line.width > availWidth;
+
+                if (needsScroll) {
+                    const x = xStart - Math.floor(line.offset);
+
+                    if (line.pause > 0) {
+                        line.pause -= dt;
+                        // keep text fixed at start position
+                        ctx.fillText(line.text, x, line.y);
+                        continue;
+                    }
+
+                    // update offset
+                    line.offset += line.dir * SCROLL_SPEED_PX_PER_SEC * dt;
+                    const maxOffset = line.width - availWidth;
+
+                    if (line.offset <= 0) {
+                        line.offset = 0;
+                        line.dir = 1;
+                        line.pause = 3; // pause again at start
+                    } else if (line.offset >= maxOffset) {
+                        line.offset = maxOffset;
+                        line.dir = -1;
+                        line.pause = 3
+                    }
+
+                    ctx.fillText(line.text, x, line.y);
+                } else {
                     ctx.fillText(line.text, xStart, line.y);
-                    continue;
                 }
+            }
+        } else {
+            ctx.fillText(moment().tz("Europe/London").format("HH:mm ddd D MMM"), 2, 8);
 
-                // update offset
-                line.offset += line.dir * SCROLL_SPEED_PX_PER_SEC * dt;
-                const maxOffset = line.width - availWidth;
-
-                if (line.offset <= 0) {
-                    line.offset = 0;
-                    line.dir = 1;
-                    line.pause = 5; // pause again at start
-                } else if (line.offset >= maxOffset) {
-                    line.offset = maxOffset;
-                    line.dir = -1;
-                    // no pause at far right, only at start
-                }
-
-                const x = xStart - Math.floor(line.offset);
-                ctx.fillText(line.text, x, line.y);
-            } else {
-                ctx.fillText(line.text, xStart, line.y);
+            if (weather) {
+                ctx.fillText(`${parseInt(weather.temperature)}°C ${weather.str}`, 2, 18);
             }
         }
 

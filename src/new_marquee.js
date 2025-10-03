@@ -6,9 +6,10 @@ import moment from "moment-timezone";
 
 dotenv.config();
 
-const MAX_FPS = 30;
+const MAX_FPS = 24;
 const SCROLL_SPEED_PX_PER_SEC = 8; // tweak for taste
-const FONT = '16px Pixel'
+const REM = 16;
+const FONT = `${REM * 1}px Pixel`
 
 registerFont("./src/font/m3x6.ttf", { family: "Pixel" });
 
@@ -63,10 +64,19 @@ async function createRenderer(device) {
 
     ctx.antialias = "none";
 
+    function getCentredOffset(text) {
+        const m = ctx.measureText(text);
+        return Math.floor((width - m.width) / 2);
+    }
+
     let image, artist = "", album = "", song = "";
     let trackId = ""; // used to detect song changes
 
     let weather;
+
+    const spotifyIcon = await loadImage(
+        `./src/svg/spotify.svg`
+    );
 
     // text layout
     const xStart = 2; // 2px pad
@@ -94,7 +104,7 @@ async function createRenderer(device) {
 
     console.log(`Creating renderer ${width}x${height} ${MAX_FPS}fps`);
 
-    const getNowPlayingImage = async () => {
+    async function getNowPlayingImage() {
         try {
             const res = await fetch(
                 `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${process.env.LASTFM_USER}&api_key=${process.env.LASTFM_KEY}&format=json&limit=1`
@@ -129,16 +139,16 @@ async function createRenderer(device) {
         } catch (e) {
             // fail quiet; keep previous frame
         }
-    };
+    }
 
-    const getWeather = async () => {
+    async function getWeather() {
         const weatherDate = moment().tz("Europe/London").format("YYYY-MM-DD");
         const res = await fetch(
             `https://api.open-meteo.com/v1/forecast?latitude=${process.env.WEATHER_LAT}&longitude=${process.env.WEATHER_LON}&current_weather=true&daily=sunrise,sunset&timezone=auto&start_date=${weatherDate}&end_date=${weatherDate}`
         );
         const json = await res.json();
         weather = { ...json.current_weather, str: getWmoString(json.current_weather.weathercode) };
-    };
+    }
 
     await getNowPlayingImage();
     setInterval(getNowPlayingImage, 15000);
@@ -162,6 +172,7 @@ async function createRenderer(device) {
 
         if (image) {
             ctx.drawImage(image, 2, 2, 32, 32);
+            ctx.drawImage(spotifyIcon, 41, 10, 16, 16);
 
             for (const line of lines) {
                 if (!line.text) continue;
@@ -197,10 +208,23 @@ async function createRenderer(device) {
                 }
             }
         } else {
-            ctx.fillText(moment().tz("Europe/London").format("HH:mm ddd D MMM"), 2, 8);
+            ctx.strokeStyle = "#e62802";
+            ctx.strokeRect(1, 1, width - 1, height - 1);
+
+            ctx.font = `${REM * 2}px Pixel`;
+            const timeStr = moment().tz("Europe/London").format("HH:mm");
+            const timeStrX = getCentredOffset(timeStr);
+            ctx.fillText(timeStr, timeStrX, 28);
+
+            ctx.font = FONT;
+            const dateStr = moment().tz("Europe/London").format("ddd Do MMM");
+            const dateStrX = getCentredOffset(dateStr);
+            ctx.fillText(dateStr, dateStrX, 38);
 
             if (weather) {
-                ctx.fillText(`${parseInt(weather.temperature)}°C ${weather.str}`, 2, 18);
+                const weatherStr = `${parseInt(weather.temperature)}°C ${weather.str}`;
+                const weatherStrX = getCentredOffset(weatherStr);
+                ctx.fillText(weatherStr, weatherStrX, 48);
             }
         }
 
